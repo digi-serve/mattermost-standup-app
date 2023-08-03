@@ -2,17 +2,22 @@
 
 ## Install & Usage
 Add Environment Variables to .env
+```
 APP_HOST="http://myhost.com"
-APP_PORT=4005 
+APP_PORT=4005
+```
+Then 
 ```
 npm install
+
 npm run dist
+
 npm run server
 ```
 
 From mattermost as Admin run:
 ```
-/apps install http "http://<myhost.com>:<port>/manifest.json
+/apps install http "<host>:<port>/manifest.json
 ```
 
 After install, from the Standup channel
