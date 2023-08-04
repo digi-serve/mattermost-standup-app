@@ -14,6 +14,7 @@ import settings from "./routes/settings";
 
 // types
 import { ExtendedContext as Context } from "../@types/mattermost-extended";
+import { expressjwt } from "express-jwt";
 
 // const host = process.env.APP_HOST || 'localhost';
 const host = process.env.APP_HOST || "http://host.docker.internal";
@@ -22,7 +23,6 @@ const port = process.env.APP_PORT ?? "4005";
 const app = express();
 
 app.use(express.json());
-app.use(initApp);
 
 app.locals.host = host;
 app.locals.port = port;
@@ -47,6 +47,30 @@ app.use((req, res, next) => {
 app.use("/static", express.static("./static"));
 
 app.use("/manifest.json", manifest);
+
+if (process.env.APP_JWT_SECRET) {
+   app.use(
+      expressjwt({
+         secret: process.env.APP_JWT_SECRET,
+         algorithms: ["HS256"],
+         // header format Bearer
+         getToken: (req) =>
+            req
+               .header("Mattermost-App-Authorization")
+               ?.match(/Bearer\s(.+)/)?.[1],
+      }).unless({ path: /update\/(?!start).+/ }),
+   );
+   app.use(function (err, req, res, next) {
+      if (err.name === "UnauthorizedError") {
+         console.log("invalid token...");
+         res.status(401).send("invalid token...");
+      } else {
+         next(err);
+      }
+   });
+}
+
+app.use(initApp);
 
 app.use("/bindings", bindings);
 
