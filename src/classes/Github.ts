@@ -152,22 +152,27 @@ export class GitHubIntegration {
       let hasNext = true;
       let count = 0;
       let cursor: string | undefined = undefined;
-      const inProgressIssues: NormalizedItem[] = [];
-      while (hasNext && count < 10) {
-         count++;
-         const project: ProjectV2 = await this.getProjectItems(cursor);
-         hasNext = project.items.pageInfo.hasNextPage;
-         cursor = project.items.pageInfo.endCursor ?? undefined;
-         project.items.nodes?.forEach((item) => {
-            if (!item) return;
-            const normalized = this.normalizeItem(item);
-            if (this.filterInProgressItem(normalized, since)) {
-               inProgressIssues.push(normalized);
-            }
-         });
+      try {
+         const inProgressIssues: NormalizedItem[] = [];
+
+         while (hasNext && count < 10) {
+            count++;
+            const project: ProjectV2 = await this.getProjectItems(cursor);
+            hasNext = project.items.pageInfo.hasNextPage;
+            cursor = project.items.pageInfo.endCursor ?? undefined;
+            project.items.nodes?.forEach((item) => {
+               if (!item) return;
+               const normalized = this.normalizeItem(item);
+               if (this.filterInProgressItem(normalized, since)) {
+                  inProgressIssues.push(normalized);
+               }
+            });
+         }
+         this.issues = inProgressIssues;
+         console.log(`Found ${this.issues.length} issues from GitHub`);
+      } catch (error) {
+         console.log("Error reading items from GitHub", error);
       }
-      this.issues = inProgressIssues;
-      console.log(`Found ${this.issues.length} issues from GitHub`);
    }
 
    private normalizeItem(item: CustomProjectV2Item): NormalizedItem {
