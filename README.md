@@ -5,7 +5,7 @@ Add Environment Variables to .env
 ```
 APP_HOST="http://myhost.com"
 APP_PORT=4005
-APP_JWT_TOKEN="OptionalSecret"
+APP_JWT_SECRET="OptionalSecret"
 ```
 Then 
 ```

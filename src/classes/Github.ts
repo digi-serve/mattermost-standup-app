@@ -208,6 +208,10 @@ export default async function (
 ) {
    if (!integration)
       integration = new GitHubIntegration(githubToken, githubOwner);
-   if (!integration.isInitialized) await integration.init({ projectNumber });
+   try {
+      if (!integration.isInitialized) await integration.init({ projectNumber });
+   } catch (err) {
+      console.log("Error Initializing the Github Integration", err);
+   }
    return integration;
 }
