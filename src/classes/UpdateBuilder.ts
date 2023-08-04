@@ -37,6 +37,7 @@ export default class UpdateBuilder {
    private _state: STATES = 1;
    protected _userClientReady = false;
    private botClient: Client4;
+   private botProfilePicURL!: string;
    private botToken!: string;
    private channelID: string;
    private history!: UserHistory;
@@ -84,6 +85,10 @@ export default class UpdateBuilder {
       this.userID = userID;
       const dm = await this.botClient.createDirectChannel([botID, userID]);
       this.dmID = dm.id;
+      this.botProfilePicURL = await this.botClient.getProfilePictureUrl(
+         botID,
+         1,
+      );
       this.history = await kvStore(
          this.botClient.getToken(),
          this.siteUrl,
@@ -132,7 +137,7 @@ export default class UpdateBuilder {
          {
             color: "#939393",
             // title: "Draft Update",
-            author_icon: `${this.host}:${this.port}/static/meeting.png`,
+            author_icon: this.botProfilePicURL,
             author_name: "Standup Bot - Draft Update",
             fields: [
                { value: this.update.generate() },
@@ -154,7 +159,7 @@ export default class UpdateBuilder {
       const attachments = [
          {
             color: "#008040",
-            author_icon: `${this.host}:${this.port}/static/meeting.png`,
+            author_icon: this.botProfilePicURL,
             author_name: "Standup Bot - Update",
             text: this.update.generate(),
          },
