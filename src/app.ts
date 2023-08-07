@@ -32,6 +32,10 @@ app.locals.port = port;
 // app.use(logger);
 
 app.use((req, res, next) => {
+   console.log(`${req.method} ${req.url}`);
+});
+
+app.use((req, res, next) => {
    const context = req.body.context as Context;
 
    // This is used to interact with the Mattermost server in the docker-compose dev environment.
