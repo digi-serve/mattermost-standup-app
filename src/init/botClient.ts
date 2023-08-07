@@ -24,6 +24,7 @@ export default async function initBotClient(
    client.setUrl(site);
    client.setToken(token);
    app.locals.botClient = client;
+   app.locals.botClientToken = token;
    app.locals.botID = botID;
    app.locals.mattermostUrl = site;
 

@@ -92,13 +92,14 @@ router.post("/register/user", async (req, res) => {
 router.post("/reminder", async (req, res) => {
    const context = req.body.context as Context;
    const botClient = req.app.locals.botClient;
-   const { acting_user: actingUser, acting_user_access_token: accessToken } =
-      context;
+   const {
+      acting_user: actingUser /*, acting_user_access_token: accessToken */,
+   } = context;
 
    // Validations
    if (!botClient) return respondMissing(res, "bot client not initialized");
    if (!actingUser) return respondMissing(res, "acting_user");
-   if (!accessToken) return respondMissing(res, "acting_user_access_token");
+   //    if (!accessToken) return respondMissing(res, "acting_user_access_token");
 
    const botStore = kvStore(botClient.getToken(), req.app.locals.mattermostUrl);
 
@@ -115,7 +116,7 @@ router.post("/reminder", async (req, res) => {
    if (values["skip-days"])
       reminder.excludeDays = values["skip-days"].split(", ");
 
-   const updater = await getUpdater(actingUser.id, req.app, accessToken);
+   const updater = await getUpdater(actingUser.id, req.app /*, accessToken */);
    const message = updater.setupReminder(
       reminder.timezone,
       reminder.hour,
