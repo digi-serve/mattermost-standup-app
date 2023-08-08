@@ -101,11 +101,11 @@ export default class Update {
 
    private generateEdited(): string {
       const sections: string[] = [];
-      for (const key in this.editedUpdate) {
-         if (!this.editedUpdate[key]) continue; // skip null
-         const type = key as keyof typeof UPDATE_TYPES;
-         sections.push(`**${L("headings", type) ?? key}:**`);
-         sections.push(this.editedUpdate[key]);
+      for (let index = 0; index < 7; index++) {
+         const type = UPDATE_TYPES[index] as keyof typeof UPDATE_TYPES;
+         if (!this.editedUpdate[type]) continue; // skip null
+         sections.push(`**${L("headings", type) ?? type}:**`);
+         sections.push(this.editedUpdate[type as string]);
          sections.push(" "); // Empty Line between sections
       }
       return sections.join("\n");
