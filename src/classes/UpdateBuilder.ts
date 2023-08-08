@@ -152,7 +152,7 @@ export default class UpdateBuilder {
       return;
    }
 
-   publishUpdate() {
+   async publishUpdate() {
       const post = {
          channel_id: this.channelID,
       } as Post;
@@ -168,9 +168,15 @@ export default class UpdateBuilder {
       // publish to the main channel
       if (this.userClientReady) {
          try {
-            this.userClient.createPost(post);
+            await this.userClient.createPost(post);
          } catch (e) {
-            console.log("caught", e);
+            console.log("Error posting as userclient", e);
+            console.log("Trying as Bot Client");
+            try {
+               this.botClient.createPost(post);
+            } catch (e) {
+               console.log("That failed too", e);
+            }
          }
       } else {
          console.log("User Access Token not set, publishing as bot");
@@ -512,8 +518,9 @@ export async function getUpdater(
       await newUpdater.init(id, app.locals.botID);
    }
    const updater = updaters[id];
-   if (actingUserToken && !updater.userClientReady) {
+   if (actingUserToken /* && !updater.userClientReady */) {
       updater.initUserClient(actingUserToken);
+      console.log("Updating actingUserToken");
    }
    if (!updater.hasGithubIntegration && app.locals.githubIntegration) {
       updater.githubIntegration = app.locals.githubIntegration;
