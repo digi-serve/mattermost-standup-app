@@ -11,6 +11,8 @@ import { Post } from "@mattermost/types/posts";
 import { GitHubIntegration } from "./Github";
 import { Application } from "express";
 import { UserHistory } from "../../@types/kvStore";
+import { app_id } from "../routes/manifest";
+import { AppField, AppForm } from "@mattermost/types/lib/apps";
 
 interface Option {
    name: string;
@@ -35,11 +37,11 @@ export default class UpdateBuilder {
    dmID!: string;
    private _githubIntegration!: GitHubIntegration;
    private _state: STATES = 1;
-   protected _userClientReady = false;
    private botClient: Client4;
    private botProfilePicURL!: string;
    private botToken!: string;
    private channelID: string;
+   private confirmID!: string;
    private history!: UserHistory;
    private host: string;
    private options!: Option[];
@@ -48,7 +50,6 @@ export default class UpdateBuilder {
    private reminderCron!: Cron;
    private siteUrl: string;
    private update = new Update();
-   private userClient = new Client4();
    private userID!: string;
 
    constructor(app: Application) {
@@ -58,11 +59,6 @@ export default class UpdateBuilder {
       this.host = app.locals.host;
       this.port = app.locals.port;
       this.siteUrl = app.locals.mattermostUrl;
-      this.userClient.setUrl(this.siteUrl);
-   }
-
-   get userClientReady() {
-      return this._userClientReady;
    }
 
    get hasGithubIntegration() {
@@ -95,11 +91,6 @@ export default class UpdateBuilder {
       ).getOne("history", userID);
    }
 
-   async initUserClient(token) {
-      this.userClient.setToken(token);
-      this._userClientReady = true;
-   }
-
    async start() {
       if (this.state != "todo") this.resetNext();
       await this.updateState();
@@ -112,6 +103,7 @@ export default class UpdateBuilder {
    async postDraft(): Promise<void> {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const actions: Record<string, any>[] = [];
+      const isSubmit = this.state == "submit";
 
       await this.generateOptions();
 
@@ -133,26 +125,69 @@ export default class UpdateBuilder {
             },
          });
       });
+      const fields = [{ value: this.update.generate() }];
+      if (!isSubmit)
+         fields.push({ value: `--- \n > **_${this.label("question")}_**` });
       const attachments = [
          {
             color: "#939393",
             // title: "Draft Update",
             author_icon: this.botProfilePicURL,
             author_name: "Standup Bot - Draft Update",
-            fields: [
-               { value: this.update.generate() },
-               { value: `--- \n > **_${this.label("question")}_**` },
-            ],
+            fields,
             actions,
          },
       ];
 
       const createdPost = await this.sendDM("", { attachments }, this.postID);
       this.postID = createdPost.id;
+
+      if (isSubmit) return this.confirmDraft();
+
       return;
    }
 
-   async publishUpdate() {
+   async confirmDraft() {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const bindings: Record<string, any>[] = [
+         {
+            app_id,
+            location: "embedded",
+            description: `> **_${this.label("question")}_**`,
+            bindings: [
+               {
+                  location: "edit",
+                  label: "Edit",
+                  submit: {
+                     path: "/update/edit",
+                     expand: {
+                        acting_user: "summary",
+                     },
+                  },
+               },
+               {
+                  location: "submit",
+                  label: "Submit",
+                  submit: {
+                     path: "/update/submit",
+                     expand: {
+                        acting_user_access_token: "all",
+                        acting_user: "summary",
+                     },
+                  },
+               },
+            ],
+         },
+      ];
+      const { id } = await this.sendDM(
+         "",
+         { app_bindings: bindings },
+         this.confirmID,
+      );
+      this.confirmID = id;
+   }
+
+   async publishUpdate(token) {
       const post = {
          channel_id: this.channelID,
       } as Post;
@@ -166,39 +201,43 @@ export default class UpdateBuilder {
       ];
       post.props = { attachments };
       // publish to the main channel
-      if (this.userClientReady) {
+      if (token) {
          try {
-            await this.userClient.createPost(post);
+            const userClient = new Client4();
+            userClient.setToken(token);
+            userClient.setUrl(this.siteUrl);
+            await userClient.createPost(post);
          } catch (e) {
             console.log("Error posting as userclient", e);
             console.log("Trying as Bot Client");
             try {
-               this.botClient.createPost(post);
+               await this.botClient.createPost(post);
             } catch (e) {
                console.log("That failed too", e);
             }
          }
       } else {
-         console.log("User Access Token not set, publishing as bot");
+         console.log("Missing user access token, publishing as bot");
          this.botClient.createPost(post);
       }
       // also update the draft dm post
       this.sendDM("Thanks for your Update!", { attachments }, this.postID);
       this.sendDM(
          ":pencil: Reminder: Make sure your task statuses are updated in the GitHub [project](https://github.com/orgs/digi-serve/projects/2)",
+         {},
+         this.confirmID,
       );
 
       this.history = {
          date: new Date(),
          goals: this.update.goals,
       };
-      if (this.userClientReady) {
-         kvStore(this.botClient.getToken(), this.siteUrl).addTo(
-            "history",
-            this.userID,
-            this.history,
-         );
-      }
+
+      kvStore(this.botClient.getToken(), this.siteUrl).addTo(
+         "history",
+         this.userID,
+         this.history,
+      );
    }
 
    // Add an item (submitted from the form) to the update
@@ -290,30 +329,38 @@ export default class UpdateBuilder {
       this.sendForm(form);
    }
 
-   showEditForm(triggerID: string) {
-      const elements: Record<string, string | boolean>[] = [];
+   generateEditForm() {
+      const fields: AppField[] = [];
 
       Object.values(UPDATE_TYPES)
          .filter((key) => typeof key == "string")
          .forEach((key) => {
-            const element = {
+            const field = {
                name: key as string,
-               display_name: key as string,
-               type: "textarea",
-               default: this.update.generate(key as keyof typeof UPDATE_TYPES),
-               optional: key != "accomplished" && key != "goal",
+               modal_label: label(
+                  "update",
+                  "question",
+                  key as keyof typeof UPDATE_TYPES,
+               ),
+               type: "text",
+               subtype: "textarea",
+               value: this.update.generate(key as keyof typeof UPDATE_TYPES),
+               is_required: key == "accomplished" || key == "goal",
             };
-            elements.push(element);
+            fields.push(field);
          });
-      const form = {
-         trigger_id: triggerID,
-         url: `${this.host}:${this.port}/update/edit/submit`,
-         dialog: {
-            title: "Edit your update",
-            elements,
+      const form: AppForm = {
+         title: "Edit your update",
+         submit: {
+            path: `/update/edit/submit`,
+            expand: {
+               acting_user: "summary",
+            },
          },
+         icon: "/meeting.png",
+         fields,
       };
-      this.sendForm(form);
+      return form;
    }
 
    // Go to the next state
@@ -382,18 +429,7 @@ export default class UpdateBuilder {
             ];
             break;
          case "submit":
-            this.options = [
-               {
-                  name: "Edit",
-                  style: "danger",
-                  url: `${this.host}:${this.port}/update/edit`,
-               },
-               {
-                  name: "Submit",
-                  style: "success",
-                  url: `${this.host}:${this.port}/update/submit`,
-               },
-            ];
+            this.options = [];
       }
    }
 
@@ -506,11 +542,7 @@ _Note: Change your timezone in mattermost's setting then run the above command_`
 // user_id: updater
 const updaters: Record<string, UpdateBuilder> = {};
 // helper to get or create updater
-export async function getUpdater(
-   id: string,
-   app: Application,
-   actingUserToken?: string,
-) {
+export async function getUpdater(id: string, app: Application) {
    if (!updaters[id]) {
       const newUpdater = new UpdateBuilder(app);
       updaters[id] = newUpdater;
@@ -518,10 +550,6 @@ export async function getUpdater(
       await newUpdater.init(id, app.locals.botID);
    }
    const updater = updaters[id];
-   if (actingUserToken /* && !updater.userClientReady */) {
-      updater.initUserClient(actingUserToken);
-      console.log("Updating actingUserToken");
-   }
    if (!updater.hasGithubIntegration && app.locals.githubIntegration) {
       updater.githubIntegration = app.locals.githubIntegration;
    }

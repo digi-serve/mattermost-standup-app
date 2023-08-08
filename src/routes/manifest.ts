@@ -5,8 +5,10 @@ interface ExtendedAppManifest extends AppManifest {
    http: Record<string, string | boolean>;
 }
 
+export const app_id = "standup-bot";
+
 export const manifest = {
-   app_id: "standup-bot",
+   app_id,
    display_name: "Standup Bot",
    description: "Facilitate Async Standups",
    homepage_url: "https://github.com/digi-serve/mattermost-standup-app",

@@ -1,4 +1,4 @@
-import { AppCallResponse } from "@mattermost/types/lib/apps";
+import { AppCallResponse, AppForm } from "@mattermost/types/lib/apps";
 import { Response } from "express";
 
 export function respondOk(res: Response) {
@@ -22,4 +22,12 @@ export function respondError(
    code: number = 500,
 ) {
    res.status(code).send(message);
+}
+
+export function respondForm(res: Response, form: AppForm) {
+   const callResponse: AppCallResponse = {
+      type: "form",
+      form,
+   };
+   res.json(callResponse);
 }

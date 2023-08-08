@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { getUpdater } from "../classes/UpdateBuilder";
 import { ExtendedContext as Context } from "../../@types/mattermost-extended";
-import { respondOk, respondMissing } from "../utils/response";
+import { respondOk, respondMissing, respondForm } from "../utils/response";
 
 const router = Router();
 
@@ -10,11 +10,7 @@ router.post("/start", async (req, res) => {
    if (!context.acting_user?.id)
       return respondMissing(res, "context.acting_user.id");
    // create the updater
-   const updater = await getUpdater(
-      context.acting_user.id,
-      req.app,
-      context.acting_user_access_token,
-   );
+   const updater = await getUpdater(context.acting_user.id, req.app);
    try {
       await updater.start();
       respondOk(res);
@@ -55,28 +51,32 @@ router.post("/add", async (req, res) => {
 });
 
 router.post("/edit", async (req, res) => {
-   const triggerID = req.body.trigger_id;
-   const userID = req.body.user_id;
+   const context = req.body.context as Context;
+   const userID = context.acting_user?.id;
    if (!userID) return respondMissing(res, "user_id");
-   respondOk(res);
    const updater = await getUpdater(userID, req.app);
-   updater.showEditForm(triggerID);
+   const form = updater.generateEditForm();
+   respondForm(res, form);
 });
 
 router.post("/edit/submit", async (req, res) => {
-   const userID = req.body.user_id;
+   const context = req.body.context as Context;
+   const userID = context.acting_user?.id;
    if (!userID) return respondMissing(res, "user_id");
    respondOk(res);
    const updater = await getUpdater(userID, req.app);
-   updater.editUpdate(req.body.submission);
+   updater.editUpdate(req.body.values);
 });
 
 router.post("/submit", async (req, res) => {
+   const context = req.body.context as Context;
    // const triggerID = req.body.trigger_id;
-   const userID = req.body.user_id;
-   if (!userID) return respondMissing(res, "user_id");
+   const userID = context.acting_user?.id;
+   if (!userID) return respondMissing(res, "context.acting_user.id");
+   const token = context.acting_user_access_token;
+   if (!token) return respondMissing(res, "acting_user_access_token");
    const updater = await getUpdater(userID, req.app);
-   updater.publishUpdate();
+   updater.publishUpdate(token);
    respondOk(res);
 });
 

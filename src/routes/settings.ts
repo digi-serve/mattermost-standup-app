@@ -57,13 +57,11 @@ router.post("/register/channel", async (req, res) => {
 router.post("/register/user", async (req, res) => {
    const context = req.body.context as Context;
    const botClient = req.app.locals.botClient as Client4;
-   const { acting_user: actingUser, acting_user_access_token: accessToken } =
-      context;
+   const { acting_user: actingUser } = context;
 
    // Validations
    if (!botClient) return respondMissing(res, "bot client not initialized");
    if (!actingUser) return respondMissing(res, "acting_user");
-   if (!accessToken) return respondMissing(res, "acting_user_access_token");
 
    const botStore = kvStore(botClient.getToken(), req.app.locals.mattermostUrl);
 
@@ -92,14 +90,11 @@ router.post("/register/user", async (req, res) => {
 router.post("/reminder", async (req, res) => {
    const context = req.body.context as Context;
    const botClient = req.app.locals.botClient;
-   const {
-      acting_user: actingUser /*, acting_user_access_token: accessToken */,
-   } = context;
+   const { acting_user: actingUser } = context;
 
    // Validations
    if (!botClient) return respondMissing(res, "bot client not initialized");
    if (!actingUser) return respondMissing(res, "acting_user");
-   //    if (!accessToken) return respondMissing(res, "acting_user_access_token");
 
    const botStore = kvStore(botClient.getToken(), req.app.locals.mattermostUrl);
 

@@ -22,10 +22,8 @@ const commandBindings = {
                submit: {
                   path: "/update/start",
                   expand: {
-                     acting_user_access_token: "all",
                      acting_user: "summary",
                      channel: "summary",
-                     //  channel_member: "all",
                   } as unknown,
                },
             },
@@ -57,7 +55,6 @@ const commandBindings = {
                      submit: {
                         path: "/settings/register/user",
                         expand: {
-                           acting_user_access_token: "all",
                            acting_user: "summary",
                            channel: "summary",
                            channel_member: "all",
@@ -71,7 +68,7 @@ const commandBindings = {
                app_id: manifest.app_id,
                location: "settings",
                label: "settings",
-               hint: "[ reminder ]",
+               hint: "[ reminder | github]",
                bindings: [
                   {
                      app_id: manifest.app_id,
@@ -109,7 +106,6 @@ const commandBindings = {
                         submit: {
                            path: "/settings/reminder",
                            expand: {
-                              acting_user_access_token: "all",
                               acting_user: "summary",
                               channel: "summary",
                               channel_member: "all",
@@ -154,7 +150,6 @@ const commandBindings = {
                         submit: {
                            path: "/settings/github",
                            expand: {
-                              acting_user_access_token: "all",
                               acting_user: "summary",
                               channel: "summary",
                               channel_member: "all",
