@@ -77,6 +77,11 @@ export default class UpdateBuilder {
       this._state = STATES[state];
    }
 
+   set token(token) {
+      this.botClient.setToken(token);
+      this.botToken = token;
+   }
+
    async init(userID: string, botID: string) {
       this.userID = userID;
       const dm = await this.botClient.createDirectChannel([botID, userID]);
@@ -542,7 +547,11 @@ _Note: Change your timezone in mattermost's setting then run the above command_`
 // user_id: updater
 const updaters: Record<string, UpdateBuilder> = {};
 // helper to get or create updater
-export async function getUpdater(id: string, app: Application) {
+export async function getUpdater(
+   id: string,
+   app: Application,
+   botToken?: string,
+) {
    if (!updaters[id]) {
       const newUpdater = new UpdateBuilder(app);
       updaters[id] = newUpdater;
@@ -550,6 +559,7 @@ export async function getUpdater(id: string, app: Application) {
       await newUpdater.init(id, app.locals.botID);
    }
    const updater = updaters[id];
+   if (botToken) updater.token = botToken;
    if (!updater.hasGithubIntegration && app.locals.githubIntegration) {
       updater.githubIntegration = app.locals.githubIntegration;
    }

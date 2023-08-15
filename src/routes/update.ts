@@ -10,7 +10,11 @@ router.post("/start", async (req, res) => {
    if (!context.acting_user?.id)
       return respondMissing(res, "context.acting_user.id");
    // create the updater
-   const updater = await getUpdater(context.acting_user.id, req.app);
+   const updater = await getUpdater(
+      context.acting_user.id,
+      req.app,
+      context.bot_access_token,
+   );
    try {
       await updater.start();
       respondOk(res);
