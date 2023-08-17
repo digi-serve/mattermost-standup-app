@@ -1,8 +1,8 @@
 // Setup the bot client
 import { Client4 } from "@mattermost/client";
 
+import getReminder from "../classes/Reminder";
 import githubIntegration from "../classes/Github";
-import { getUpdater } from "../classes/UpdateBuilder";
 import kvStore from "../utils/kvStore";
 
 // Types
@@ -30,7 +30,7 @@ export default async function initBotClient(
 
    await initGitHub(app);
    await initChannel(app);
-   await initUpdaters(app);
+   await initReminders(app);
    app.locals.appReady = true;
 }
 
@@ -59,21 +59,15 @@ async function initChannel(app: Application) {
    app.locals.channel = channel.id;
 }
 
-async function initUpdaters(app: Application) {
+async function initReminders(app: Application) {
    const botClient = app.locals.botClient;
    const reminders = (await kvStore(
       botClient.getToken(),
       app.locals.mattermostUrl,
    ).get("reminders")) as ReminderSettings;
    for (const id in reminders) {
-      const reminder = reminders[id];
-      const updater = await getUpdater(id, app /*, reminder.accessToken*/);
-      updater.setupReminder(
-         reminder.timezone,
-         reminder.hour,
-         reminder.minute,
-         reminder.excludeDays,
-      );
-      console.log("Updater started for", id, reminder);
+      const setting = reminders[id];
+      await getReminder(id, app, setting);
+      console.log("Reminder started with", id, setting);
    }
 }

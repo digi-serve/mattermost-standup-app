@@ -6,22 +6,22 @@ import {
    respondUnauthorized,
    respondError,
 } from "../utils/response";
-import { ExtendedContext as Context } from "../../@types/mattermost-extended";
 import { Client4 } from "@mattermost/client";
 import { Post } from "@mattermost/types/lib/posts";
 import kvStore from "../utils/kvStore";
-import { getUpdater } from "../classes/UpdateBuilder";
 import gitHubIntegration from "../classes/Github";
 import {
    GithubSettings,
    ReminderSetting,
    ChannelSetting,
 } from "../../@types/kvStore";
+import { AppContext } from "../../@types/mattermost";
+import getReminder from "../classes/Reminder";
 
 const router = Router();
 
 router.post("/register/channel", async (req, res) => {
-   const context = req.body.context as Context;
+   const context = req.body.context as AppContext;
    const botClient = req.app.locals.botClient as Client4;
    //    if (!botClient) return respondError(res, "bot client not initialized");
    if (!context.acting_user?.roles.includes("system_admin")) {
@@ -55,7 +55,7 @@ router.post("/register/channel", async (req, res) => {
 });
 
 router.post("/register/user", async (req, res) => {
-   const context = req.body.context as Context;
+   const context = req.body.context as AppContext;
    const botClient = req.app.locals.botClient as Client4;
    const { acting_user: actingUser } = context;
 
@@ -70,25 +70,27 @@ router.post("/register/user", async (req, res) => {
       return respondMissing(res, "Channel not setup for standups!");
    }
 
-   const updater = await getUpdater(actingUser.id, req.app);
    const timezone = getTimezone(actingUser);
-   const message = updater.setupReminder(timezone);
-
-   const post = {
-      channel_id: updater.dmID,
-      message: `Standups registered for **${channel.name}**\n\n${message}`,
-   } as Post;
-   botClient.createPost(post);
-
-   const reminder: ReminderSetting = {
+   const setting: ReminderSetting = {
       timezone,
    };
-   botStore.addTo("reminders", actingUser.id, reminder);
+   const reminder = await getReminder(actingUser.id, req.app, setting);
+   reminder.dmID;
+   // const message = updater.setupReminder(timezone);
+
+   const post = {
+      channel_id: reminder.dmID,
+      message: `Standups registered for **${channel.name}**`,
+   } as Post;
+   await botClient.createPost(post);
+   reminder.sendHelpText();
+
+   botStore.addTo("reminders", actingUser.id, setting);
    respondOk(res);
 });
 
 router.post("/reminder", async (req, res) => {
-   const context = req.body.context as Context;
+   const context = req.body.context as AppContext;
    const botClient = req.app.locals.botClient;
    const { acting_user: actingUser } = context;
 
@@ -100,37 +102,32 @@ router.post("/reminder", async (req, res) => {
 
    const values = req.body.values;
 
-   const reminder = (await botStore.getOne(
+   const settings = (await botStore.getOne(
       "reminders",
       actingUser.id,
    )) as ReminderSetting;
    // Merge stored value with new values
-   reminder.timezone = getTimezone(actingUser);
-   if (values.hour) reminder.hour = values.hour;
-   if (values.minute) reminder.minute = values.minute;
+   settings.timezone = getTimezone(actingUser);
+   if (values.hour) settings.hour = values.hour;
+   if (values.minute) settings.minute = values.minute;
    if (values["skip-days"])
-      reminder.excludeDays = values["skip-days"].split(", ");
+      settings.excludeDays = values["skip-days"].split(", ");
 
-   const updater = await getUpdater(actingUser.id, req.app /*, accessToken */);
-   const message = updater.setupReminder(
-      reminder.timezone,
-      reminder.hour,
-      reminder.minute,
-      reminder.excludeDays,
+   const reminder = await getReminder(actingUser.id, req.app, settings);
+   reminder.setupReminder(
+      settings.timezone,
+      settings.hour,
+      settings.minute,
+      settings.excludeDays,
    );
-
-   const post = {
-      channel_id: updater.dmID,
-      message: `Reminder updated: \n\n${message}`,
-   } as Post;
-   botClient.createPost(post);
+   reminder.sendHelpText("Reminder updated: \n\n");
 
    botStore.addTo("reminders", actingUser.id, reminder);
    respondOk(res);
 });
 
 router.post("/github", async (req, res) => {
-   const context = req.body.context as Context;
+   const context = req.body.context as AppContext;
    if (!context.acting_user?.roles.includes("system_admin"))
       return respondUnauthorized(res, "Requires system_admin role");
    const { botClient } = req.app.locals;

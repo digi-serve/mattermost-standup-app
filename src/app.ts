@@ -13,7 +13,7 @@ import manifest from "./routes/manifest";
 import settings from "./routes/settings";
 
 // types
-import { ExtendedContext as Context } from "../@types/mattermost-extended";
+import { AppContext } from "../@types/mattermost";
 import { expressjwt } from "express-jwt";
 
 // const host = process.env.APP_HOST || 'localhost';
@@ -21,7 +21,6 @@ const host = process.env.APP_HOST || "http://host.docker.internal";
 const port = process.env.APP_PORT ?? "4005";
 
 const app = express();
-
 app.use(express.json());
 
 app.locals.host = host;
@@ -37,7 +36,7 @@ app.use((req, res, next) => {
 });
 
 app.use((req, res, next) => {
-   const context = req.body.context as Context;
+   const context = req.body.context as AppContext;
 
    // This is used to interact with the Mattermost server in the docker-compose dev environment.
    // We ignore the site URL sent in call requests, and instead use the known site URL from the environment variable.

@@ -1,5 +1,4 @@
-// Walk through the standup Questions
-import { Cron } from "croner";
+// Walk through the standup Questionss
 import { Client4 } from "@mattermost/client";
 
 import Update, { UPDATE_TYPES } from "./Update";
@@ -13,6 +12,7 @@ import { Application } from "express";
 import { UserHistory } from "../../@types/kvStore";
 import { app_id } from "../routes/manifest";
 import { AppField, AppForm } from "@mattermost/types/lib/apps";
+import BotClient from "./BotClient";
 
 interface Option {
    name: string;
@@ -33,11 +33,10 @@ export enum STATES {
    submit,
 }
 
-export default class UpdateBuilder {
+export default class UpdateBuilder extends BotClient {
    dmID!: string;
    private _githubIntegration!: GitHubIntegration;
    private _state: STATES = 1;
-   private botClient: Client4;
    private botProfilePicURL!: string;
    private botToken!: string;
    private channelID: string;
@@ -47,14 +46,16 @@ export default class UpdateBuilder {
    private options!: Option[];
    private port: string;
    private postID!: string;
-   private reminderCron!: Cron;
    private siteUrl: string;
    private update = new Update();
    private userID!: string;
 
-   constructor(app: Application) {
-      this.botClient = app.locals.botClient;
-      this.botToken = this.botClient.getToken();
+   constructor(app: Application, token: string) {
+      const botClient = new Client4();
+      botClient.setToken(token);
+      botClient.setUrl(app.locals.mattermostUrl);
+      super(botClient);
+      this.botToken = token;
       this.channelID = app.locals.channel;
       this.host = app.locals.host;
       this.port = app.locals.port;
@@ -82,12 +83,11 @@ export default class UpdateBuilder {
       this.botToken = token;
    }
 
-   async init(userID: string, botID: string) {
+   override async init(userID: string) {
+      await super.init(userID);
       this.userID = userID;
-      const dm = await this.botClient.createDirectChannel([botID, userID]);
-      this.dmID = dm.id;
       this.botProfilePicURL = await this.botClient.getProfilePictureUrl(
-         botID,
+         this.botClientID,
          1,
       );
       this.history = await kvStore(
@@ -464,79 +464,6 @@ export default class UpdateBuilder {
       this.state = "todo";
    }
 
-   setupReminder(
-      timezone: string,
-      hour: number = 10,
-      minute: number = 0,
-      excludeDays: string[] = [],
-   ) {
-      const days = ["MON", "TUE", "WED", "THU", "FRI"].filter(
-         (day) => !excludeDays.includes(day),
-      );
-      if (hour < 0 || hour > 24)
-         return new Error(`Hour should be between 0-24, recieced ${hour}`);
-      if (minute < 0 || minute > 60)
-         return new Error(`Minute should be between 0-60, recieced ${minute}`);
-      const cronString = `0 ${minute} ${hour} * * ${days.join(",")}`;
-      if (this.reminderCron) this.reminderCron.stop();
-      this.reminderCron = Cron(cronString, { timezone }, () => this.reminder());
-      return this.reminderHelpText(timezone, days, hour, minute);
-   }
-
-   hoursToNextReminder() {
-      const ms = this.reminderCron.msToNext();
-      if (!ms) return 0;
-      else return Math.round(ms / 1000 / 60 / 60);
-   }
-
-   private reminder() {
-      this.sendDM(
-         ":calendar: It's time for your Standup report! **Type `/standup start` to begin.**",
-      );
-   }
-
-   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-   sendDM(message: string, props?: Record<string, any>, id?: string) {
-      const post = {
-         channel_id: this.dmID,
-         message,
-      } as Post;
-      if (props) post.props = props;
-      if (id) {
-         post.id = id;
-         return this.botClient.updatePost(post);
-      } else {
-         return this.botClient.createPost(post);
-      }
-   }
-
-   private reminderHelpText(timezone, days, hour, minute) {
-      enum Days {
-         MON = "Monday",
-         TUE = "Tuesday",
-         WED = "Wednesday",
-         THU = "Thursday",
-         FRI = "Friday",
-      }
-      days = days.map((day) => Days[day]);
-      const lastDay = days.pop();
-      const dayString =
-         days.length < 1 ? lastDay : `${days.join(", ")}, and ${lastDay}`;
-      let isAM = true;
-      if (hour > 12) {
-         isAM = false;
-         hour = hour - 12;
-      }
-      return `Remiders will be sent at ${hour}:${
-         minute > 10 ? minute : `0${minute}`
-      } ${
-         isAM ? "AM" : "PM"
-      } in timezone **${timezone}** on ${dayString} (Next reminder is in about ${this.hoursToNextReminder()} hours)
-
-To change the time run \`/standup settings reminder\`
-_Note: Change your timezone in mattermost's setting then run the above command_`;
-   }
-
    private label(key: string) {
       const state = this.state as keyof typeof STATES;
       return label("builder", key, state);
@@ -553,10 +480,14 @@ export async function getUpdater(
    botToken?: string,
 ) {
    if (!updaters[id]) {
-      const newUpdater = new UpdateBuilder(app);
+      if (!botToken)
+         throw new Error(
+            `No updater found for ${id} and no bot token was given... unable create an updater`,
+         );
+      const newUpdater = new UpdateBuilder(app, botToken);
       updaters[id] = newUpdater;
 
-      await newUpdater.init(id, app.locals.botID);
+      await newUpdater.init(id);
    }
    const updater = updaters[id];
    if (botToken) updater.token = botToken;
@@ -564,4 +495,10 @@ export async function getUpdater(
       updater.githubIntegration = app.locals.githubIntegration;
    }
    return updater;
+}
+
+export async function deleteUpdater(id: string) {
+   if (updaters[id]) {
+      delete updaters[id];
+   }
 }

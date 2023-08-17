@@ -1,7 +1,7 @@
 import { AppContext } from "@mattermost/types/apps";
 
 // Missing some context when we expand calls
-export interface ExtendedContext extends AppContext {
+type ExtendedAppContext = {
    bot_user_id: string;
    bot_access_token: string;
    mattermost_site_url: string;
@@ -25,4 +25,6 @@ export interface ExtendedContext extends AppContext {
    channel_member: {
       user_id: string;
    };
-}
+};
+
+export type AppContext = AppContext & ExtendedAppContext;

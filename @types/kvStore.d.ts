@@ -7,7 +7,6 @@ export interface ReminderSetting {
    hour?: number;
    minute?: number;
    excludeDays?: string[];
-   // accessToken: string;
 }
 
 export type ReminderSettings = Record<string, ReminderSetting>;

@@ -1,8 +1,13 @@
 import initBotClient from "../init/botClient";
-import { ExtendedContext } from "../../@types/mattermost-extended";
+import { AppContext } from "../../@types/mattermost";
+import { NextFunction, Request, Response } from "express";
 
-export default async function (req, res, next) {
-   const context = req.body.context as ExtendedContext;
+export default async function (
+   req: Request,
+   res: Response,
+   next: NextFunction,
+) {
+   const context = req.body.context as AppContext;
    if (!req.app.locals.appReady) {
       if (
          context?.mattermost_site_url &&

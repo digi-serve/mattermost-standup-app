@@ -1,14 +1,16 @@
 import { Router } from "express";
-import { getUpdater } from "../classes/UpdateBuilder";
-import { ExtendedContext as Context } from "../../@types/mattermost-extended";
+import { deleteUpdater, getUpdater } from "../classes/UpdateBuilder";
+import { AppContext } from "../../@types/mattermost";
 import { respondOk, respondMissing, respondForm } from "../utils/response";
 
 const router = Router();
 
 router.post("/start", async (req, res) => {
-   const context = req.body.context as Context;
+   const context = req.body.context as AppContext;
    if (!context.acting_user?.id)
       return respondMissing(res, "context.acting_user.id");
+   // Remove the old updater;
+   deleteUpdater(context.acting_user.id);
    // create the updater
    const updater = await getUpdater(
       context.acting_user.id,
@@ -24,21 +26,20 @@ router.post("/start", async (req, res) => {
 });
 
 router.post("/form", async (req, res) => {
-   const userID = req.body.user_id;
-   if (!userID) return respondMissing(res, "user_id");
-   const index = parseInt(req.body.context.index);
-   const triggerID = req.body.trigger_id;
-   const state = req.body.context.type ?? "accomplished";
+   const context = req.body.context as AppContext;
+   if (!context.acting_user?.id) return respondMissing(res, "acting_user.id");
+   const index = parseInt(req.body.state.index);
+   const state = req.body.state.type ?? "accomplished";
    // Respond before showing the form
    respondOk(res);
-   const updater = await getUpdater(userID, req.app);
-   updater.showAddForm(triggerID, state, index);
+   const updater = await getUpdater(context.acting_user.id, req.app);
+   updater.showAddForm("", state, index);
 });
 
 router.post("/next", async (req, res) => {
-   const userID = req.body.user_id;
-   if (!userID) return respondMissing(res, "user_id");
-   const updater = await getUpdater(userID, req.app);
+   const context = req.body.context as AppContext;
+   if (!context.acting_user?.id) return respondMissing(res, "acting_user.id");
+   const updater = await getUpdater(context.acting_user.id, req.app);
    updater.updateState();
    respondOk(res);
 });
@@ -55,7 +56,7 @@ router.post("/add", async (req, res) => {
 });
 
 router.post("/edit", async (req, res) => {
-   const context = req.body.context as Context;
+   const context = req.body.context as AppContext;
    const userID = context.acting_user?.id;
    if (!userID) return respondMissing(res, "user_id");
    const updater = await getUpdater(userID, req.app);
@@ -64,7 +65,7 @@ router.post("/edit", async (req, res) => {
 });
 
 router.post("/edit/submit", async (req, res) => {
-   const context = req.body.context as Context;
+   const context = req.body.context as AppContext;
    const userID = context.acting_user?.id;
    if (!userID) return respondMissing(res, "user_id");
    respondOk(res);
@@ -73,7 +74,7 @@ router.post("/edit/submit", async (req, res) => {
 });
 
 router.post("/submit", async (req, res) => {
-   const context = req.body.context as Context;
+   const context = req.body.context as AppContext;
    // const triggerID = req.body.trigger_id;
    const userID = context.acting_user?.id;
    if (!userID) return respondMissing(res, "context.acting_user.id");

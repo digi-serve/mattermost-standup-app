@@ -44,7 +44,6 @@ const commandBindings = {
                            acting_user_access_token: "all",
                            acting_user: "summary",
                            channel: "summary",
-                           channel_member: "all",
                         } as unknown,
                      },
                   },
@@ -57,7 +56,6 @@ const commandBindings = {
                         expand: {
                            acting_user: "summary",
                            channel: "summary",
-                           channel_member: "all",
                         } as unknown,
                      },
                   },
@@ -108,7 +106,6 @@ const commandBindings = {
                            expand: {
                               acting_user: "summary",
                               channel: "summary",
-                              channel_member: "all",
                            } as unknown,
                         },
                      },
@@ -152,7 +149,6 @@ const commandBindings = {
                            expand: {
                               acting_user: "summary",
                               channel: "summary",
-                              channel_member: "all",
                            } as unknown,
                         },
                      },
