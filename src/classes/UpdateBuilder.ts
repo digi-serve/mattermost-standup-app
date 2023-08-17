@@ -11,7 +11,7 @@ import { GitHubIntegration } from "./Github";
 import { Application } from "express";
 import { UserHistory } from "../../@types/kvStore";
 import { app_id } from "../routes/manifest";
-import { AppField, AppForm } from "@mattermost/types/lib/apps";
+import { AppField, AppForm, AppSelectOption } from "@mattermost/types/lib/apps";
 import BotClient from "./BotClient";
 
 interface Option {
@@ -264,7 +264,11 @@ export default class UpdateBuilder extends BotClient {
 
    // Add an item (submitted from the form) to the update
    processFormAdd(
-      submission: { issue: string; note: string; issueOther?: string },
+      submission: {
+         issue: Record<string, string>;
+         note: string;
+         issueOther?: string;
+      },
       state: string = "accomplished",
    ): Promise<void> {
       const wasGoal = this.state == "review";
@@ -275,9 +279,9 @@ export default class UpdateBuilder extends BotClient {
       this.update.add({
          type,
          reference:
-            submission.issue == "none"
+            submission.issue.value == "none"
                ? submission.issueOther ?? ""
-               : submission.issue,
+               : submission.issue.value,
          wasGoal,
          note: submission.note,
       });
@@ -290,65 +294,64 @@ export default class UpdateBuilder extends BotClient {
    }
 
    // Show a form (interactive dialog) in mattermost to add the selected item.
-   showAddForm(
-      triggerID: string,
-      state: keyof typeof UPDATE_TYPES,
-      index: number,
-   ) {
+   getAddForm(state: keyof typeof UPDATE_TYPES, index: number) {
       const github = this.state != "personal";
       const isReview = this.state == "review";
-      let options: Record<string, string>[] = [];
+      let options: AppSelectOption[] = [];
       let githubOptions = false;
       if (github && !isReview) {
          options = this.githubOptions();
          if (options.length > 0) githubOptions = true;
       }
-      const elements: Record<
-         string,
-         string | boolean | Record<string, string>[]
-      >[] = [
+      const fields: AppField[] = [
          {
             name: "note",
-            display_name:
+            modal_label:
                this.label("note") ??
                state.replace(/^\w/, (x) => x.toUpperCase()),
             type: "text",
-            default: isReview ? this.history.goals[index].note : "",
-            help_text: this.label("noteHelp"),
+            value: isReview ? this.history.goals[index].note : "",
+            description: this.label("noteHelp"),
+            is_required: true,
          },
       ];
       if (githubOptions) {
-         elements.push({
+         fields.push({
             name: "issue",
-            display_name: "GitHub Issue",
-            type: "select",
-            options: [{ text: "None / Other", value: "none" }, ...options],
-            help_text: "If this is related to a GitHub issue select it here.",
+            modal_label: "GitHub Issue",
+            type: "static_select",
+            options: [{ label: "None / Other", value: "none" }, ...options],
+            description: "If this is related to a GitHub issue select it here.",
+            is_required: true,
          });
       }
       if (github) {
-         elements.push({
+         fields.push({
             name: githubOptions ? "issueOther" : "issue",
-            display_name: githubOptions ? "Other GitHub Issue" : "GitHub Issue",
+            modal_label: githubOptions ? "Other GitHub Issue" : "GitHub Issue",
             type: "text",
-            optional: true,
-            default: isReview ? this.history.goals[index].reference : "",
-            help_text: `Add an issue ${
+            value: isReview ? this.history.goals[index].reference : "",
+            description: `Add an issue ${
                githubOptions ? " not in the list above " : ""
             }\`{repo_name}#{issue_number}\`. Leave blank if it's not related to any.`,
          });
       }
 
-      const form = {
-         trigger_id: triggerID,
-         url: `${this.host}:${this.port}/update/add`,
-         dialog: {
-            title: "Add an Item",
-            state: isReview ? index.toString() : state,
-            elements,
+      const form: AppForm = {
+         submit: {
+            path: `/update/add`,
+            expand: {
+               acting_user: "summary",
+            },
+            state: {
+               updaterState: isReview ? index.toString() : state,
+            },
          },
+         title: "Add an Item",
+         // state: isReview ? index.toString() : state,
+         fields,
       };
-      this.sendForm(form);
+      return form;
    }
 
    generateEditForm() {
@@ -455,7 +458,7 @@ export default class UpdateBuilder extends BotClient {
       }
    }
 
-   private githubOptions() {
+   private githubOptions(): AppSelectOption[] {
       const since =
          this.state == "accomplished"
             ? this.history?.date ?? new Date() // show closed issue since last update
@@ -469,9 +472,9 @@ export default class UpdateBuilder extends BotClient {
                   ? `${issue.reference} ${issue.title}`
                   : issue.title ?? "";
                const value = issue.reference ?? "";
-               return { text, value };
+               return { label: text, value };
             })
-            .sort((a, b) => (a.text < b.text ? -1 : 1)) ?? []
+            .sort((a, b) => (a.label < b.label ? -1 : 1)) ?? []
       );
    }
 

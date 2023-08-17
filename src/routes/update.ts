@@ -30,10 +30,9 @@ router.post("/form", async (req, res) => {
    if (!context.acting_user?.id) return respondMissing(res, "acting_user.id");
    const index = parseInt(req.body.state.index);
    const state = req.body.state.type ?? "accomplished";
-   // Respond before showing the form
-   respondOk(res);
    const updater = await getUpdater(context.acting_user.id, req.app);
-   updater.showAddForm("", state, index);
+   const form = updater.getAddForm(state, index);
+   respondForm(res, form);
 });
 
 router.post("/next", async (req, res) => {
@@ -45,12 +44,11 @@ router.post("/next", async (req, res) => {
 });
 
 router.post("/add", async (req, res) => {
-   const submission = req.body.submission;
-   const type = req.body.state;
-   const userID = req.body.user_id;
-   if (!userID) return respondMissing(res, "user_id");
-   const updater = await getUpdater(userID, req.app);
-   updater.processFormAdd(submission, type);
+   const context = req.body.context as AppContext;
+   if (!context.acting_user?.id) return respondMissing(res, "acting_user.id");
+   const type = req.body.state.updaterState;
+   const updater = await getUpdater(context.acting_user.id, req.app);
+   updater.processFormAdd(req.body.values, type);
 
    respondOk(res);
 });
