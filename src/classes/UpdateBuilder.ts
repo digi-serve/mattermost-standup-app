@@ -106,48 +106,65 @@ export default class UpdateBuilder extends BotClient {
     * @returns promise
     */
    async postDraft(): Promise<void> {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const actions: Record<string, any>[] = [];
       const isSubmit = this.state == "submit";
 
+      // Draft Update
+      const attachments = [
+         {
+            color: "#939393",
+            author_icon: this.botProfilePicURL,
+            author_name: "Standup Bot - Draft Update",
+            fields: [{ value: this.update.generate() }],
+         },
+      ];
+      const promisedPost = this.sendDM("", { attachments }, this.postID);
+
+      if (isSubmit) {
+         this.postID = (await promisedPost).id;
+         return this.confirmDraft();
+      }
+
+      // Actions
       await this.generateOptions();
 
       if (this.state == "review" && this.options.length == 0) {
          this.updateState();
          return;
       }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const bindings: Record<string, any> = {
+         app_id,
+         location: "embedded",
+         description: `> **_${this.label("question")}_**`,
+         bindings: [],
+      };
       this.options.forEach((option, index) => {
-         actions.push({
-            id: index.toString(),
-            name: option.name,
-            style: option.style,
-            integration: {
-               url: option.url ?? `${this.host}:${this.port}/update/form`,
-               context: {
+         bindings.bindings.push({
+            location: index.toString(),
+            label: option.name,
+            submit: {
+               path: option.url ?? `/update/form`,
+               expand: {
+                  acting_user: "summary",
+               },
+               state: {
                   type: option.type,
                   index: index.toString(),
                },
             },
          });
       });
-      const fields = [{ value: this.update.generate() }];
-      if (!isSubmit)
-         fields.push({ value: `--- \n > **_${this.label("question")}_**` });
-      const attachments = [
-         {
-            color: "#939393",
-            // title: "Draft Update",
-            author_icon: this.botProfilePicURL,
-            author_name: "Standup Bot - Draft Update",
-            fields,
-            actions,
-         },
-      ];
-
-      const createdPost = await this.sendDM("", { attachments }, this.postID);
+      const createdPost = await promisedPost;
       this.postID = createdPost.id;
-
-      if (isSubmit) return this.confirmDraft();
+      const { id } = await this.sendDM(
+         "",
+         { app_bindings: [bindings] },
+         this.confirmID,
+      );
+      this.confirmID = id;
+      // const fields = [{ value: this.update.generate() }];
+      // if (!isSubmit)
+      //    fields.push({ value: `--- \n > **_${this.label("question")}_**` });
 
       return;
    }
@@ -395,7 +412,7 @@ export default class UpdateBuilder extends BotClient {
       const next: Option = {
          name: "That's all",
          style: "primary",
-         url: `${this.host}:${this.port}/update/next`,
+         url: `/update/next`,
       };
       switch (this.state) {
          case "review":
