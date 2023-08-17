@@ -41,7 +41,7 @@ export class Reminder extends BotClient {
    }
 
    sendHelpText(preText?: string) {
-      return this.sendDM(`${preText}${this.reminderHelpText()}`);
+      return this.sendDM(`${preText ?? ""}${this.reminderHelpText()}`);
    }
 
    private hoursToNextReminder() {
@@ -74,7 +74,7 @@ export class Reminder extends BotClient {
       if (hour > 12) {
          isAM = false;
          hour = hour - 12;
-      }
+      } else if (hour == 12) isAM = false;
       return `Remiders will be sent at ${hour}:${
          this.minute > 9 ? this.minute : `0${this.minute}`
       } ${isAM ? "AM" : "PM"} in timezone **${

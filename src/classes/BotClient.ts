@@ -10,17 +10,16 @@ export default class BotClient {
    }
 
    async init(userID: string) {
-      console.log("Get Me");
       const bot = await this.botClient.getMe();
-      console.log("Me:", bot);
       this.botClientID = bot.id;
       try {
-         console.log("Set up dm with", [bot.id, userID]);
          const dm = await this.botClient.createDirectChannel([bot.id, userID]);
-         console.log("got the DM setup");
          this.dmID = dm.id;
-      } catch (E) {
-         console.log("Caught it -->", E);
+      } catch (err) {
+         console.log(
+            `Error creating a direct message channel with ${[bot.id, userID]}`,
+            err,
+         );
       }
    }
 
