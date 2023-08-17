@@ -155,6 +155,26 @@ const commandBindings = {
                   },
                ],
             },
+            {
+               app_id: manifest.app_id,
+               location: "debug",
+               label: "debug",
+               bindings: [
+                  {
+                     app_id: manifest.app_id,
+                     location: "submit",
+                     label: "submit",
+                     submit: {
+                        path: "/update/submit?debug=true",
+                        expand: {
+                           acting_user_access_token: "all",
+                           acting_user: "summary",
+                           channel: "summary",
+                        } as unknown,
+                     },
+                  },
+               ],
+            },
          ],
       },
    ],

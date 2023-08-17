@@ -9,6 +9,7 @@ type ExtendedAppContext = {
    acting_user?: {
       id: string;
       roles: string;
+      username: string;
       timezone: {
          automaticTimezone: string;
          manualTimezone: string;

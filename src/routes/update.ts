@@ -73,12 +73,16 @@ router.post("/edit/submit", async (req, res) => {
 
 router.post("/submit", async (req, res) => {
    const context = req.body.context as AppContext;
-   // const triggerID = req.body.trigger_id;
+   if (req.query.debug)
+      console.log(
+         "`/standup debug submit` called by",
+         context.acting_user?.username,
+      );
    const userID = context.acting_user?.id;
    if (!userID) return respondMissing(res, "context.acting_user.id");
    const token = context.acting_user_access_token;
    if (!token) return respondMissing(res, "acting_user_access_token");
-   const updater = await getUpdater(userID, req.app);
+   const updater = await getUpdater(userID, req.app, context.bot_access_token);
    updater.publishUpdate(token);
    respondOk(res);
 });
