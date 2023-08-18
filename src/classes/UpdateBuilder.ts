@@ -279,9 +279,9 @@ export default class UpdateBuilder extends BotClient {
       this.update.add({
          type,
          reference:
-            !submission.issue || submission.issue?.value == "none"
-               ? submission.issueOther ?? ""
-               : submission.issue?.value ?? "",
+            submission.issue && submission.issue.value != "none"
+               ? submission.issue.value
+               : submission.issueOther ?? "",
          wasGoal,
          note: submission.note,
       });
@@ -327,7 +327,7 @@ export default class UpdateBuilder extends BotClient {
       }
       if (github) {
          fields.push({
-            name: githubOptions ? "issueOther" : "issue",
+            name: "issueOther",
             modal_label: githubOptions ? "Other GitHub Issue" : "GitHub Issue",
             type: "text",
             value: isReview ? this.history.goals[index].reference : "",
