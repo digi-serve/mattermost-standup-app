@@ -279,9 +279,9 @@ export default class UpdateBuilder extends BotClient {
       this.update.add({
          type,
          reference:
-            submission.issue.value == "none"
+            !submission.issue || submission.issue?.value == "none"
                ? submission.issueOther ?? ""
-               : submission.issue.value,
+               : submission.issue?.value ?? "",
          wasGoal,
          note: submission.note,
       });
