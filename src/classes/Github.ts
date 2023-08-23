@@ -191,7 +191,7 @@ export class GitHubIntegration {
 
    private filterInProgressItem(item: NormalizedItem, since: Date) {
       if (!item.title || !item.status || !item.updated) return false;
-      if (item.status == "📝 Todo") return false;
+      if (item.status == "📝 Todo" || item.status == "📫 Inbox") return false;
       const updated = new Date(item.updated);
       if (item.status == "✔ Done" && updated < since) return false;
       return true;
