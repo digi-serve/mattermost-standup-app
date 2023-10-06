@@ -75,8 +75,6 @@ router.post("/register/user", async (req, res) => {
       timezone,
    };
    const reminder = await getReminder(actingUser.id, req.app, setting);
-   reminder.dmID;
-   // const message = updater.setupReminder(timezone);
 
    const post = {
       channel_id: reminder.dmID,
