@@ -2,6 +2,7 @@ import { Router } from "express";
 import { deleteUpdater, getUpdater } from "../classes/UpdateBuilder";
 import { AppContext } from "../../@types/mattermost";
 import { respondOk, respondMissing, respondForm } from "../utils/response";
+import { updateStatuses } from "../utils/statusUpdates";
 
 const router = Router();
 
@@ -84,6 +85,25 @@ router.post("/submit", async (req, res) => {
    if (!token) return respondMissing(res, "acting_user_access_token");
    const updater = await getUpdater(userID, req.app, context.bot_access_token);
    updater.publishUpdate(token);
+   respondOk(res);
+});
+
+router.post("/status", async (req, res) => {
+   const context = req.body.context as AppContext;
+   const githubIntegration = req.app.locals.githubIntegration;
+   const userID = context.acting_user?.id;
+   if (!userID) return respondMissing(res, "user_id");
+   const updater = await getUpdater(userID, req.app);
+   respondOk(res);
+   updateStatuses(req.body.values, githubIntegration, updater);
+});
+
+router.post("/close", async (req, res) => {
+   const context = req.body.context as AppContext;
+   const userID = context.acting_user?.id;
+   if (!userID) return respondMissing(res, "user_id");
+   const updater = await getUpdater(userID, req.app);
+   updater.sendDM("", undefined, context.post.id);
    respondOk(res);
 });
 

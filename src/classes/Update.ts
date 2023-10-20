@@ -42,6 +42,10 @@ export default class Update {
       return this.lines.filter((line) => line.type == "goal");
    }
 
+   get references() {
+      return this.lines.map(l => l.reference).filter(l => l);
+   }
+
    add(line: Line): void {
       this.lines.push(line);
    }
