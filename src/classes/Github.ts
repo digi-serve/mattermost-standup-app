@@ -1,5 +1,6 @@
 import { graphql } from "@octokit/graphql";
 import { Cron } from "croner";
+const { setTimeout } = require('node:timers/promises');
 
 import {
    // validate,
@@ -7,6 +8,7 @@ import {
    Organization,
    ProjectV2,
    ProjectV2Item,
+   Repository,
 } from "@octokit/graphql-schema";
 
 interface CustomProjectV2Item extends ProjectV2Item {
@@ -14,6 +16,7 @@ interface CustomProjectV2Item extends ProjectV2Item {
 }
 
 interface NormalizedItem {
+   id: string;
    title?: string;
    assignees?: Array<string | undefined>;
    reference?: string;
@@ -24,6 +27,8 @@ interface NormalizedItem {
 export class GitHubIntegration {
    isInitialized = false;
    owner: string;
+   statusFieldID!: string | undefined;
+   statusOptions!: Record<"id" | "name", string>[];
    private refreshCron!: Cron;
    private graphqlWithAuth: typeof graphql;
    private projectID!: string | undefined;
@@ -48,9 +53,32 @@ export class GitHubIntegration {
       this.refreshCron = Cron("? * * * *", () =>
          this.getInprogressIssuesFromGithub(),
       );
+      this.getStatusMeta();
       return;
    }
 
+   async getStatusMeta() {
+      const query = `
+         query getSatusMeta($projectID: ID!, $statusfield: String="Status") {
+            node(id: $projectID) {
+               ...on ProjectV2 {
+                  field(name: $statusfield) {
+                     ...on ProjectV2SingleSelectField {
+                        id
+                        options {
+                           id
+                           name
+                        }
+                     }
+                  }
+               }
+            }
+         }
+      `;
+      const { node } = await this.graphqlWithAuth(query, { projectID: this.projectID });
+      this.statusFieldID = node.field?.id;
+      this.statusOptions = node.field.options;
+   }
    // Helpful when developing
    // validateSendQuery(
    //    query: string,
@@ -66,6 +94,112 @@ export class GitHubIntegration {
    //       return this.graphqlWithAuth(query, variables);
    //    }
    // }
+   async getIssueStatus(id: string) {
+      const query = `
+         query getIssueStatus($itemID: ID!, $statusfield: String="Status") {
+            node(id: $itemID) {
+               ... on ProjectV2Item {
+                  status: fieldValueByName(name: $statusfield) {
+                     ... on ProjectV2ItemFieldSingleSelectValue {
+                         name, 
+                     }
+                  }
+               }
+            }
+         }
+      `;
+      
+      const { node } = await this.graphqlWithAuth<{ node: CustomProjectV2Item }>(
+         query,
+         { itemID: id },
+      );
+
+      return node.status?.name;
+
+   }
+
+   async getProjectItemID(reference: string): Promise<string | undefined> {
+      // see if we already have it
+      const issue = this.issues.find(i => i.reference == reference);
+      if (issue) return issue.id;
+      // If not let's query GH
+      const query = `
+         query getProjectItemID($owner: String!, $repo: String!, $issue: Int!) {
+            repository(owner: $owner, name: $repo) {
+               issue(number: $issue) {
+                  id
+                  projectItems(first: 10) {
+                     nodes {
+                        id
+                        project {
+                           id
+                        }
+                     }
+                  }
+               }
+            }
+         }
+      `;
+      const [repo, issueNumber] = reference.split("#");
+      const params = {
+            owner: this.owner,
+            repo,
+            issue: parseInt(issueNumber), 
+         };
+      const { repository } = await this.graphqlWithAuth<{ repository: Repository }>(
+         query,
+         params
+      );
+      const existingIssue = repository.issue;
+      if (!existingIssue) return;
+      const projectItem = existingIssue.projectItems.nodes?.find(
+         n => n?.project.id == this.projectID
+      );
+      if (projectItem) return projectItem.id;
+      // Item isn't in the project so add it
+      const mutation = `
+         mutation($projectID:ID!, $issueID:ID!) {
+            addProjectV2ItemById(input: {projectId: $projectID, contentId: $issueID}) {
+               item {
+                  id
+               }
+            }
+         }
+      `;
+      const params2 = {
+         projectID: this.projectID,
+         issueID: existingIssue.id
+      };
+      const { addProjectV2ItemById: newItem } = await this.graphqlWithAuth<
+      { addProjectV2ItemById: { item: ProjectV2Item } }
+      >(
+         mutation,
+         params2
+      );
+      // Wait for status to get set
+      await setTimeout(500);
+      return newItem.item.id;
+      
+   }
+   
+   async updateStatus(reference: string, status: string) {
+      const variables = { 
+         fieldID: this.statusFieldID,
+         itemID: await this.getProjectItemID(reference),
+         projectID: this.projectID,
+         value: this.statusID(status),
+      }
+      const mutation = `
+         mutation ($fieldID: ID!, $itemID: ID!, $projectID: ID!, $value: String!) {
+            updateProjectV2ItemFieldValue(input: {fieldId: $fieldID, itemId: $itemID, projectId: $projectID, value: { singleSelectOptionId: $value }}) {
+               projectV2Item {
+                  id
+               }
+            }
+         }
+      `;
+      await this.graphqlWithAuth(mutation, variables);
+   }
 
    private async getProjectID(projectNumber: number) {
       // console.log("TODO: remove getProjectID override", projectNumber);
@@ -99,6 +233,7 @@ export class GitHubIntegration {
                                 endCursor
                             }
                             nodes {
+                                id
                                 content {
                                     ... on Issue {
                                         title
@@ -175,9 +310,14 @@ export class GitHubIntegration {
       }
    }
 
+   private statusID(name) {
+      return this.statusOptions.find(o => o.name == name)?.["id"];
+   }
+
    private normalizeItem(item: CustomProjectV2Item): NormalizedItem {
       const issue = item.content as Issue;
       return {
+         id: item.id,
          title: item.content?.title,
          reference: issue
             ? `${issue?.repository?.name}#${issue?.number}`

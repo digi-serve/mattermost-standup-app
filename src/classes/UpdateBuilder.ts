@@ -13,6 +13,7 @@ import { UserHistory } from "../../@types/kvStore";
 import { app_id } from "../routes/manifest";
 import { AppField, AppForm, AppSelectOption } from "@mattermost/types/lib/apps";
 import BotClient from "./BotClient";
+import { displayStatuses } from "../utils/statusUpdates";
 
 interface Option {
    name: string;
@@ -34,18 +35,15 @@ export enum STATES {
 }
 
 export default class UpdateBuilder extends BotClient {
+   actionsPostID!: string;
    dmID!: string;
    private _githubIntegration!: GitHubIntegration;
    private _state: STATES = 1;
    private botProfilePicURL!: string;
-   private botToken!: string;
    private channelID: string;
-   private confirmID!: string;
+   private draftPostID!: string;
    private history!: UserHistory;
-   private host: string;
    private options!: Option[];
-   private port: string;
-   private postID!: string;
    private siteUrl: string;
    private update = new Update();
    private userID!: string;
@@ -55,10 +53,7 @@ export default class UpdateBuilder extends BotClient {
       botClient.setToken(token);
       botClient.setUrl(app.locals.mattermostUrl);
       super(botClient);
-      this.botToken = token;
       this.channelID = app.locals.channel;
-      this.host = app.locals.host;
-      this.port = app.locals.port;
       this.siteUrl = app.locals.mattermostUrl;
    }
 
@@ -78,9 +73,8 @@ export default class UpdateBuilder extends BotClient {
       this._state = STATES[state];
    }
 
-   set token(token) {
+   set token(token: string) {
       this.botClient.setToken(token);
-      this.botToken = token;
    }
 
    override async init(userID: string) {
@@ -117,10 +111,9 @@ export default class UpdateBuilder extends BotClient {
             fields: [{ value: this.update.generate() }],
          },
       ];
-      const promisedPost = this.sendDM("", { attachments }, this.postID);
-
+      const createdPost = await this.sendDM("", { attachments }, this.draftPostID);
+      this.draftPostID = createdPost.id;
       if (isSubmit) {
-         this.postID = (await promisedPost).id;
          return this.confirmDraft();
       }
 
@@ -154,18 +147,12 @@ export default class UpdateBuilder extends BotClient {
             },
          });
       });
-      const createdPost = await promisedPost;
-      this.postID = createdPost.id;
       const { id } = await this.sendDM(
          "",
          { app_bindings: [bindings] },
-         this.confirmID,
+         this.actionsPostID,
       );
-      this.confirmID = id;
-      // const fields = [{ value: this.update.generate() }];
-      // if (!isSubmit)
-      //    fields.push({ value: `--- \n > **_${this.label("question")}_**` });
-
+      this.actionsPostID = id;
       return;
    }
 
@@ -204,9 +191,9 @@ export default class UpdateBuilder extends BotClient {
       const { id } = await this.sendDM(
          "",
          { app_bindings: bindings },
-         this.confirmID,
+         this.actionsPostID,
       );
-      this.confirmID = id;
+      this.actionsPostID = id;
    }
 
    async publishUpdate(token) {
@@ -243,13 +230,9 @@ export default class UpdateBuilder extends BotClient {
          this.botClient.createPost(post);
       }
       // also update the draft dm post
-      this.sendDM("Thanks for your Update!", { attachments }, this.postID);
-      this.sendDM(
-         ":pencil: Reminder: Make sure your task statuses are updated in the GitHub [project](https://github.com/orgs/digi-serve/projects/2)",
-         {},
-         this.confirmID,
-      );
-
+      this.sendDM("Thanks for your Update!", { attachments }, this.draftPostID);
+      const refs = this.update.references as string[];
+      displayStatuses(refs, this, this._githubIntegration);
       this.history = {
          date: new Date(),
          goals: this.update.goals,
@@ -399,17 +382,6 @@ export default class UpdateBuilder extends BotClient {
       this.postDraft();
    }
 
-   // Send a form (interactive dialog) to mattermost
-   private sendForm(form): Promise<Response> {
-      return fetch(`${this.siteUrl}/api/v4/actions/dialogs/open`, {
-         method: "POST",
-         body: JSON.stringify(form),
-         headers: {
-            Authorization: `Bearer ${this.botToken}`,
-         },
-      });
-   }
-
    // generate this.option based on the state
    private async generateOptions() {
       const next: Option = {
@@ -480,7 +452,8 @@ export default class UpdateBuilder extends BotClient {
 
    private resetNext() {
       this.update = new Update();
-      this.postID = "";
+      this.actionsPostID = "";
+      this.draftPostID = "";
       this.state = "todo";
    }
 

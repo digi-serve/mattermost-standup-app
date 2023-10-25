@@ -26,6 +26,9 @@ type ExtendedAppContext = {
    channel_member: {
       user_id: string;
    };
+   post: {
+      id: string;
+   }
 };
 
 export type AppContext = AppContext & ExtendedAppContext;

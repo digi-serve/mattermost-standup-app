@@ -11,12 +11,10 @@ export class Reminder extends BotClient {
    private days = ["MON", "TUE", "WED", "THU", "FRI"];
    constructor(
       app: Application,
-      userID: string,
       { timezone, hour, minute, excludeDays }: ReminderSetting,
    ) {
       super(app.locals.botClient);
       this.setupReminder(timezone, hour, minute, excludeDays);
-      this.init(userID);
    }
 
    setupReminder(
@@ -89,11 +87,14 @@ _Note: Change your timezone in mattermost's setting then run the above command_`
 // Reminder instances
 const reminders: Record<string, Reminder> = {};
 
-export default function getReminder(
+export default async function getReminder(
    id: string,
    app: Application,
    settings: ReminderSetting,
 ) {
-   if (!reminders[id]) reminders[id] = new Reminder(app, id, settings);
+   if (!reminders[id]) {
+      reminders[id] = new Reminder(app, settings);
+      await reminders[id].init(id);
+   }
    return reminders[id];
 }
