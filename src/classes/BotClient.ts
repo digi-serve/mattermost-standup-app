@@ -1,5 +1,5 @@
 import { Client4 } from "@mattermost/client";
-import { Post } from "@mattermost/types/lib/posts";
+import { Post } from "@mattermost/types/posts";
 
 export default class BotClient {
    dmID!: string;

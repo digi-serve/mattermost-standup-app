@@ -1,4 +1,4 @@
-import { AppField, AppForm } from "@mattermost/types/lib/apps";
+import { AppField, AppForm } from "@mattermost/types/apps";
 import { GitHubIntegration } from "../classes/Github";
 import UpdateBuilder from "../classes/UpdateBuilder";
 import { app_id } from "../routes/manifest";
@@ -11,7 +11,7 @@ export async function displayStatuses(issues: string[], client: UpdateBuilder, g
    const statusLookups = issues.map(async (reference) => {
       try {
          const id = await gitHub.getProjectItemID(reference);
-         if (!id ) return;
+         if (!id) return;
          return await gitHub.getIssueStatus(id);
       } catch (e) {
          console.log(e);
@@ -21,9 +21,9 @@ export async function displayStatuses(issues: string[], client: UpdateBuilder, g
 
    const statuses = await Promise.all(statusLookups);
    const issueStatuses = issues.map(
-      (issue, index) => { 
-      return { name: issue, status: statuses[index] ?? "not found"} 
-   });
+      (issue, index) => {
+         return { name: issue, status: statuses[index] ?? "not found" }
+      });
    const message = issueStatuses.map(
       (i) => `${i.name} - ${i.status}`
    ).join("\n");
@@ -45,7 +45,7 @@ export async function displayStatuses(issues: string[], client: UpdateBuilder, g
                submit: {
                   path: "/update/close",
                   expand: {
-                     post: "summary",            
+                     post: "summary",
                      acting_user: "summary",
                   }
                }
@@ -57,22 +57,22 @@ export async function displayStatuses(issues: string[], client: UpdateBuilder, g
 }
 
 const statuses = [
-    "📫 Inbox",
-    "📈 Prioritized",
-    "🚧 In Progress",
-    "💬 Code Review",
-    "📋 Partner Review",
-    "🚀 Deploying",
-    "✔ Done",
+   "📫 Inbox",
+   "📈 Prioritized",
+   "🚧 In Progress",
+   "💬 Code Review",
+   "📋 Partner Review",
+   "🚀 Deploying",
+   "✔ Done",
 ];
 
 function statusesAfter(status: string) {
-  const index = statuses.indexOf(status);
-  if (index < 0) return [];
-  return statuses.slice(index + 1)
+   const index = statuses.indexOf(status);
+   if (index < 0) return [];
+   return statuses.slice(index + 1)
 }
 
-function generateUpdateStatusForm(issues: Record<"name"|"status", string>[]) {
+function generateUpdateStatusForm(issues: Record<"name" | "status", string>[]) {
    const form: AppForm = {
       title: "Update Statuses",
       header: "Update status for the given issues below. Leave them blank to keep the current statuses.",
@@ -81,11 +81,11 @@ function generateUpdateStatusForm(issues: Record<"name"|"status", string>[]) {
          path: "/update/status",
          expand: {
             acting_user: "summary",
-         }, 
+         },
       },
    };
 
-   
+
    issues.forEach(({ name, status }) => {
       const field: AppField = {
          name,

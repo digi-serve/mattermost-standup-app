@@ -9,8 +9,8 @@
   },
   "license": "Apache-2.0",
   "dependencies": {
-    "@mattermost/client": "7.10",
-    "@mattermost/types": "7.10",
+    "@mattermost/client": "10.5",
+    "@mattermost/types": "10.5",
     "@octokit/graphql": "^7.0.1",
     "@octokit/graphql-schema": "^14.23.0",
     "croner": "^6.0.7",

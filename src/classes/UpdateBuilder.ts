@@ -11,7 +11,7 @@ import { GitHubIntegration } from "./Github";
 import { Application } from "express";
 import { UserHistory } from "../../@types/kvStore";
 import { app_id } from "../routes/manifest";
-import { AppField, AppForm, AppSelectOption } from "@mattermost/types/lib/apps";
+import { AppField, AppForm, AppSelectOption } from "@mattermost/types/apps";
 import BotClient from "./BotClient";
 import { displayStatuses } from "../utils/statusUpdates";
 
@@ -314,9 +314,8 @@ export default class UpdateBuilder extends BotClient {
             modal_label: githubOptions ? "Other GitHub Issue" : "GitHub Issue",
             type: "text",
             value: isReview ? this.history.goals[index].reference : "",
-            description: `Add an issue ${
-               githubOptions ? " not in the list above " : ""
-            }\`{repo_name}#{issue_number}\`. Leave blank if it's not related to any.`,
+            description: `Add an issue ${githubOptions ? " not in the list above " : ""
+               }\`{repo_name}#{issue_number}\`. Leave blank if it's not related to any.`,
          });
       }
 

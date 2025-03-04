@@ -1,4 +1,4 @@
-import { AppCallResponse, AppForm } from "@mattermost/types/lib/apps";
+import { AppCallResponse, AppForm } from "@mattermost/types/apps";
 import { Response } from "express";
 
 export function respondOk(res: Response) {

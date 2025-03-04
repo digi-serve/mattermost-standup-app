@@ -7,7 +7,7 @@ import {
    respondError,
 } from "../utils/response";
 import { Client4 } from "@mattermost/client";
-import { Post } from "@mattermost/types/lib/posts";
+import { Post } from "@mattermost/types/posts";
 import kvStore from "../utils/kvStore";
 import gitHubIntegration from "../classes/Github";
 import {
